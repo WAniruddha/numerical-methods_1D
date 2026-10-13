@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from solver import step, solve
+from solver import step, solve, exact_solution, grid_study
 
 
 class SolverTests(unittest.TestCase):
@@ -17,6 +17,22 @@ class SolverTests(unittest.TestCase):
     def test_initial_condition(self):
         x, phi = solve(cells=32, final_time=0)
         np.testing.assert_allclose(phi, np.sin(2 * np.pi * x))
+
+    def test_refinement_reduces_error(self):
+        for scheme in ('upwind', 'central'):
+            errs = grid_study(scheme=scheme, sizes=(25, 50, 100), time=0.1)
+            self.assertLess(errs[1], errs[0])
+            self.assertLess(errs[2], errs[1])
+
+    def test_central_has_smaller_error_on_smooth_problem(self):
+        x, upwind = solve(cells=100, scheme='upwind')
+        _, central = solve(cells=100, scheme='central')
+        truth = exact_solution(x, 0.1)
+        self.assertLess(np.linalg.norm(central - truth), np.linalg.norm(upwind - truth))
+
+    def test_central_without_diffusion_rejected(self):
+        with self.assertRaises(ValueError):
+            solve(scheme='central', diffusion=0)
 
     def test_reject_invalid_input(self):
         with self.assertRaises(ValueError):
