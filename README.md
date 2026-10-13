@@ -17,3 +17,13 @@ python solver.py --study --scheme central
 ```
 
 The explicit timestep is conservative, but this is still a simple learning solver. For central convection we require nonzero diffusion; pure central advection with forward Euler would be unstable. Don't use it as a general purpose CFD package.
+
+## Repeat the experiments
+
+```bash
+python -m pip install numpy matplotlib
+python -m unittest discover -v
+python experiment.py
+```
+
+The script writes the comparison figures and error tables into the ignored `results/` directory. The sharp-profile plot includes an advection-only reference, not an exact solution of the diffusion problem. The separate CFL-factor table checks timestep sensitivity rather than claiming temporal convergence order.
