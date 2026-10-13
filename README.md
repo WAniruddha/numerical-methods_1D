@@ -27,3 +27,14 @@ python experiment.py
 ```
 
 The script writes the comparison figures and error tables into the ignored `results/` directory. The sharp-profile plot includes an advection-only reference, not an exact solution of the diffusion problem. The separate CFL-factor table checks timestep sensitivity rather than claiming temporal convergence order.
+
+## Small C++ check
+
+The C++ file is only one explicit diffusion timestep and is deliberately separate from the Python solver. It is not a full C++ port.
+
+```bash
+g++ -std=c++17 -Wall -Wextra -pedantic diffusion_step.cpp -o diffusion_step
+./diffusion_step
+```
+
+For the same initial sine profile, grid and timestep, its output was compared locally with the Python diffusion operator (maximum absolute difference around 9e-16). Python tests also run through GitHub Actions when enabled.
