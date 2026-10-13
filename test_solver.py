@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from solver import step, solve, exact_solution, grid_study
+from solver import step, solve, exact_solution, grid_study, sharp_profile, time_step_study
 
 
 class SolverTests(unittest.TestCase):
@@ -33,6 +33,31 @@ class SolverTests(unittest.TestCase):
     def test_central_without_diffusion_rejected(self):
         with self.assertRaises(ValueError):
             solve(scheme='central', diffusion=0)
+
+    def test_sharp_profile_mass_and_bounds(self):
+        # Pure upwind transport should not create new max/min values.
+        x, phi = solve(cells=120, diffusion=0, scheme='upwind',
+                       initial=sharp_profile, final_time=0.08)
+        self.assertAlmostEqual(phi.mean(), sharp_profile(x).mean(), places=12)
+        self.assertGreaterEqual(phi.min(), -1e-12)
+        self.assertLessEqual(phi.max(), 1 + 1e-12)
+
+    def test_both_schemes_conserve_mass(self):
+        for scheme in ('upwind', 'central'):
+            x, phi = solve(cells=75, scheme=scheme, initial=sharp_profile)
+            self.assertAlmostEqual(phi.mean(), sharp_profile(x).mean(), places=11)
+
+    def test_timestep_study_is_finite(self):
+        for scheme in ('upwind', 'central'):
+            vals = time_step_study(cells=80, scheme=scheme)
+            self.assertEqual(len(vals), 3)
+            self.assertTrue(all(np.isfinite(e) for _, e in vals))
+
+    def test_reject_bad_cfl_and_initial_shape(self):
+        with self.assertRaises(ValueError):
+            solve(cfl=0)
+        with self.assertRaises(ValueError):
+            solve(initial=lambda x: x[:-1])
 
     def test_reject_invalid_input(self):
         with self.assertRaises(ValueError):

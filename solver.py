@@ -32,8 +32,9 @@ def step(phi, dx, dt, velocity, diffusion, scheme="upwind"):
     return phi + dt * (convection + diffusion_term)
 
 
-def solve(cells=100, velocity=1.0, diffusion=0.01, final_time=0.1, scheme="upwind"):
-    if cells < 3 or diffusion < 0 or final_time < 0:
+def solve(cells=100, velocity=1.0, diffusion=0.01, final_time=0.1, scheme="upwind",
+          cfl=0.4, initial=None):
+    if cells < 3 or diffusion < 0 or final_time < 0 or not 0 < cfl <= 1:
         raise ValueError('invalid grid, diffusion, or final time')
     if scheme not in ("upwind", "central"):
         raise ValueError("unknown scheme")
@@ -41,7 +42,9 @@ def solve(cells=100, velocity=1.0, diffusion=0.01, final_time=0.1, scheme="upwin
         raise ValueError("central Euler advection needs diffusion")
     dx = 1.0 / cells
     x = (np.arange(cells) + 0.5) * dx
-    phi = np.sin(2 * np.pi * x)
+    phi = np.sin(2 * np.pi * x) if initial is None else np.asarray(initial(x), dtype=float)
+    if phi.shape != x.shape or not np.all(np.isfinite(phi)):
+        raise ValueError("initial field must have one finite value per cell")
     if final_time == 0:
         return x, phi
     adv_dt = dx / abs(velocity) if velocity else float('inf')
@@ -52,11 +55,26 @@ def solve(cells=100, velocity=1.0, diffusion=0.01, final_time=0.1, scheme="upwin
         dt_limit = min(dt_limit, 2 * diffusion / velocity**2)
     if not np.isfinite(dt_limit):
         return x, phi
-    count = max(1, int(np.ceil(final_time / (0.4 * dt_limit))))
+    count = max(1, int(np.ceil(final_time / (cfl * dt_limit))))
     dt = final_time / count
     for _ in range(count):
         phi = step(phi, dx, dt, velocity, diffusion, scheme)
     return x, phi
+
+
+def sharp_profile(x):
+    """Step-like initial data for looking at smearing/overshoots."""
+    return np.where((x >= 0.3) & (x < 0.6), 1.0, 0.0)
+
+
+def time_step_study(cells=100, scheme="upwind", factors=(0.1, 0.2, 0.4)):
+    """Compare time step factors at one spatial resolution."""
+    data = []
+    for factor in factors:
+        x, phi = solve(cells=cells, scheme=scheme, cfl=factor)
+        error = float(np.sqrt(np.mean((phi - exact_solution(x, 0.1)) ** 2)))
+        data.append((factor, error))
+    return data
 
 
 def exact_solution(x, time, velocity=1.0, diffusion=0.01):
